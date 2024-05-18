@@ -1,0 +1,69 @@
+\documentclass{xduugthesis}
+\usepackage{algorithm}
+% \usepackage{algorithmic}
+\usepackage{algpseudocodex}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{caption}
+\usepackage{tabularray}
+\usepackage{enumitem}
+\usepackage{theorem}
+\usepackage{siunitx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{pifont}
+\usepackage{physics}
+\usepackage{bm}
+\usepackage{multirow} 
+\usepackage{booktabs}
+\usepackage{url}
+\xdusetup{
+    style = {
+        fix-input = true,
+        before-skip = {24pt,22pt,22pt,22pt,12pt,12pt},
+        after-skip = {24pt,24pt,24pt,24pt,6pt,6pt}
+    },
+    info = {
+    	title = {图像噪声先验学习与去噪方法},
+    	author = {李傲},
+        department = {人工智能学院},
+        major = {人工智能},
+        supervisor = {董伟生},
+        class-id = {2020039},
+        student-id = {20009200077},
+        abstract = {chapters/abstract-zh.tex},
+        keywords = {物理噪声模型, 标准化流, 噪声先验, 图像盲去噪 },
+        abstract* = {chapters/abstract-en.tex},
+        keywords* = {Physics-based Noise Modeling, Normalizing Flow, Noise Prior, Blind Denoising},
+        bib-resource = {refs/reference.bib},
+       % appendix = {chapters/appendix-a.tex},
+        acknowledgements = {chapters/acknowledgements.tex}
+    }
+}
+
+\def\mathbi#1{\textbf{\em #1}} 
+
+\newcommand{\cmark}{\ding{51}}
+\newcommand{\xmark}{\ding{55}}
+
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+\renewcommand\thesubfigure{\alph{subfigure})}
+
+% \usepackage{mathtools}
+% \newtagform{test}[\text]{\text{\small 式~(}}{)}
+% \usetagform{test}
+
+\begin{document}
+\chapter{绪论}
+\input{chapters/introduction.tex}
+\chapter{相关工作}
+\input{chapters/technoledges.tex}
+\chapter{基于标准化流的噪声建模}
+\input{chapters/methods.tex}
+\chapter{实验结果与分析}
+\input{chapters/experiments.tex}
+\chapter{总结与展望}
+\input{chapters/conclusions.tex}
+\end{document}

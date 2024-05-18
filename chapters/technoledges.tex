@@ -1,0 +1,291 @@
+\section{相关图像去噪方法}
+\subsection{传统图像去噪算法}
+
+本文将在此节介绍最为经典和强大的去噪算法BM3D\cite{bm3d}，BM3D主要用于去除图像中的加性高斯白噪声（Additive White Gaussian Noise，AWGN）。AWGN是一种理想化的噪声模型，根据BM3D的原论文\cite{bm3d}，对于输入的带有噪声的图像$v(x)$，其加性高斯白噪声可以用一个方程来表示：
+\begin{equation}
+	v(x)=u(x)+n(x), n(x) \sim \mathcal{N}\left(0, \sigma^2\right) 
+\end{equation}
+其中，$u(x)$是没有噪声的干净图像，$n(x)$是加性高斯白噪声。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=1.0\textwidth]{imgs/bm3d.pdf}
+	\caption{BM3D去噪算法流程图。\cite{bm3d}}
+	\label{fig:bm3d}
+\end{figure}
+
+BM3D算法总体分为两个步骤，每一步可以分为三个小的步骤：相似块分组、协同滤波和聚合。
+
+第一步：基础估计
+
+1、分组：首先在噪声图像中选择一些$k\times k$大小的参照块，在参照块的周围$n \times n$的区域内进行搜索。通过搜索，找出若干个差异度最小的块，并把这些块整合成一个$3$维的矩阵，包含参照块自身。寻找相似块这一过程可以用一个公式来表示：
+\begin{equation}
+	G(P)=\left\{Q: d(P, Q) \leq \tau_{match}\right\}
+\end{equation}
+其中，$d(P, Q)$为两个块之间改进后的的欧氏距离，$\tau_{match}$为判定两个块相似的最大误差阈值，一般根据经验来设置，或者设置超参数$N_{max}$，取与参照块距离最小的前$N_{max}$个块。
+
+2、协同滤波：每个三维矩阵中的二维块会经历两个变换，先进行二维离散余弦变换，然后在第三个维度进行一维哈达玛变换。接着，将低于设定阈值的成分置为零，并统计剩余非零成分的数量作为后续权重的参考。最后，通过反向变换，重新构建处理后的图像块。这一过程的公式如下：
+\begin{equation}
+	Q(P)=T_{3Dhard }^{-1}\left(\gamma\left(T_{3Dhard}(Q(P))\right)\right)
+\end{equation}
+其中$\gamma$为硬阈值操作：
+\begin{equation}
+	\gamma(x)=\left\{\begin{array}{ll}
+		0 &  if |x| \leq \lambda_{3D} \\
+		x & otherwise
+	\end{array} \right.
+\end{equation}
+
+3、聚合：这些图块逆变换后放回原位，并利用上一步统计的非零成分数量和噪声强度来获得叠加权重。最终，通过将叠放后的图像除以每个点的权重，可以得到基础估计的图像。
+
+第二步：最终估计
+
+1、分组：此时基础估计已经消除了大部分噪点，对于含噪原图的每个目标图块，可以直接用对应基础估计图块的欧氏距离衡量相似程度。将基础估计图块、含噪原图图块分别叠成两个三维数组。
+
+2、协同滤波：两个三维矩阵都进行第一步中的变换。用维纳滤波将噪声图块形成的三维矩阵进行系数放缩，该系数通过基础估计的三维矩阵的值以及噪声强度得出。这一过程用如下公式表示：
+\begin{equation}
+	Q(P)=T_{3 D wein }^{-1}\left(w_p \cdot T_{3Dwein}(Q((P)))\right.
+\end{equation}
+其中$w_p$是维纳滤波的系数。
+
+3、聚合：类似第一步中的聚合。
+
+相对于基础估计图，第二个步骤得到的最终估计图还原了更多原图的细节。BM3D去噪算法所需的噪声先验仅为图像噪声方差，无法体现本文提出的方法的优越性，因此在后续的去噪任务中，BM3D去噪算法并没有被应用。
+
+\subsection{有监督深度图像去噪}
+
+本节将主要讲解去噪卷积神经网络（Denoising Convolutional Neural Network，DnCNN），该网络是近几年最流行的去噪神经网络。Zhang等人在2016年发表的《Beyond a Gaussian Denoiser： Residual Learning of Deep CNN for Image Denoising》\cite{dncnn}论文中，首次论述了DnCNN网络的原理。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=1.0\textwidth]{imgs/dncnn.pdf}
+	\caption{DnCNN网络结构图。\cite{dncnn}}
+	\label{fig:dncnn}
+\end{figure}
+
+DnCNN定义去噪问题如下：
+\begin{equation}
+	y=x+v
+\end{equation}
+即根据噪声图像$y$，恢复出干净图像$x$。
+
+DnCNN在VGG\cite{vgg}的基础上进行修改，网络结构是卷积层、批规范化（Batch Normalization，BN）、修正线性单元（Rectified Linear Unit，ReLU）级联的结构，模型内部并不像ResNet\cite{resnet}一样存在跳连，而是在网络输出时使用残差学习。
+
+对于每个卷积层，DnCNN采用$3\times 3$尺寸的卷积核，设置步长为1。因此，对于一个$d$层卷积的网络，感受野大小为$(2d+1)^2$。DnCNN把层数设置为17，每个卷积层卷积核的数量设置为64。
+
+
+模型的主要任务是，根据噪声图像$y$，估计干净图像$x$，但是，模型的直接输出并不是$x$ ，而是噪声图像$v$，最终干净图的获取过程用公式表达就是$x=y-\mathcal{R}(y)$，这里$\mathcal{R}(y)$就相当于模型，有$\mathcal{R}(y) \approx v$。作者把这种方式称作残差学习（Residual Learning），并通过实验证实了残差学习对于提高训练稳定性和去噪效果的好处。
+
+模型训练时，输出的误差图和真实误差图之间，采用均方误差损失函数（Mean-Square Error，MSE）进行约束。对于训练数据$\left\{\left(\mathrm{x}_i, \mathrm{y}_i\right)\right\}_{i=1}^N$，损失函数定义为：
+\begin{equation}
+	l(\theta)=\frac{1}{2 N}\left\|\mathcal{R}\left(\mathrm{y}_i ; \theta\right)-\left(\mathrm{y}_i-\mathrm{x}_i\right)\right\|
+	\label{dncnnloss}
+\end{equation}
+
+这里$\theta$即为DnCNN的网络参数，训练集的信息就保存在这里面，模型使用随机梯度下降（Stochastic Gradient Descent，SGD）或自适应矩估计（Adaptive Moment Estimation，Adam）方式进行模型参数更新。
+
+本文所提出的噪声先验学习方法可以生成DnCNN所需要的成对噪声-干净数据集，后续将在实验部分对比不同先验对于DnCNN去噪算法的影响。
+
+\subsection{自监督深度图像去噪}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=1.0\textwidth]{imgs/dip.pdf}
+	\caption{深度图像先验网络结构图。\cite{dip}}
+	\label{fig:dip}
+\end{figure}
+
+随着2012年AlexNet\cite{alexnet}的成功，卷积神经网络在图像分类、目标检测等任务中得到了广泛的应用，在DnCNN\cite{dncnn}被提出之后，也被广泛应用于执行图像的复原任务。深度卷积神经网络之所以成功，是因为它能够从大量的图像数据集中学习。但Ulyanov等研究者在其2018年的论文《Deep Image Prior》\cite{dip}中指出，神经网络结构天然具有对自然信号的低阻抗性和对噪声信号的高阻抗性，这种隐式先验信息使单一网络结构即可以胜任图像复原任务，不需要预先训练的网络或大型图像数据集，只需考虑退化图像即可完成。
+
+深度图像先验定义复原图像退化问题为：
+\begin{equation}
+	x^*=\arg \max _x p(x \mid \hat{x})
+	\label{map}
+\end{equation}
+其中$x^*$为恢复出的图像，$\hat{x}$为退化图像，$x$为干净图像。
+
+利用贝叶斯规则，有：
+\begin{equation}
+	p(x \mid \hat{x})=\frac{p(\hat{x} \mid x) p(x)}{p(\hat{x})} \propto p(\hat{x} \mid x) p(x)
+\end{equation}
+
+进而式\ref{map}可以被转化为：
+\begin{equation}
+	\begin{aligned}
+		x^* & =\arg \max _x p(\hat{x} \mid x) p(x) \\
+		& =\arg \min _x-\log p(\hat{x} \mid x)-\log p(x) \\
+		& =\arg \min _x E(x ; \hat{x})+R(x)
+	\end{aligned}
+\end{equation}
+其中$E(x ; \hat{x})$是一个任务相关的数据项，$R(x)$是正则化项。数据项$E(x ; \hat{x})$的选择通常直接由具体应用决定，另一方面，正则化项$R(x)$通常不与特定应用相关联，因为它捕获了自然图像的一般规律性。在这项工作中，作者放弃了显式正则化项$R(x)$，而只使用神经网络参数化捕获的隐式先验，如下所示：
+\begin{equation}
+	\theta^*=\arg \min _\theta E\left(f_\theta(z) ; \hat{x}\right), \quad x^*=f_{\theta^*}(z)
+	\label{dip}
+\end{equation}
+
+求解过程中，只需要随机初始化$z$，利用基于梯度的方法对函数进行优化，当找到最佳的$\theta$，只需向使用参数$θ$的网络中传入固定的输入$z$，然后前向传播就就可以获得最佳的图像。深度图像先验适用于所有底层视觉任务，包括去噪、超分辨等，针对图像去噪，作者将数据项特化为：
+\begin{equation}
+	E\left(x ; x_0\right)=\left\|x-\hat{x}\right\|^2
+	\label{dipdenoise}
+\end{equation}
+
+将式\ref{dipdenoise}带入式\ref{dip}，可得深度图像先验针对图像去噪的优化问题：
+\begin{equation}
+	\min _\theta\left\|f_\theta(z)-\hat{x}\right\|^2
+\end{equation}
+
+深度图像先验作为一种先验学习方式，已经被应用在了多种底层视觉任务中，如下一节本文将要介绍的基于流的核先验模型（Flow-based Kernel Prior，FKP）\cite{fkp}，但其并没有充分利用噪声先验的物理性质，这限制了将深度网络结构作为唯一先验的效果。
+
+\section{标准化流}
+
+\subsection{标准化流模型的介绍}
+
+标准化流是一种流行的生成模型\cite{nice,realnvp,naf,glow,sos}，它提供了一种巧妙的解决方案，通过可逆神经网络将复杂分布$p_{\mathcal{X}}$转换为简单分布布$p_{\mathcal{Z}}$(如高斯分布)。从统计和机器学习的角度来看，许多现实世界的问题可以转化为概率分布问题。简而言之，标准化流可以在数据样本$x \in \mathcal{X}$和相应的子空间变量$z \in \mathcal{Z}$之间建立一个双射映射，通过一个易于处理的分布和概率密度函数，即$z \leftrightarrow x$，在数学上可以表示为：
+\begin{equation}
+	z=f_{\boldsymbol{\theta}}(x), \quad x=f_{\boldsymbol{\theta}}^{-1}(z), \quad z \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\end{equation}
+其中，$f_{\boldsymbol{\theta}}(\cdot)$表示参数为$\theta$的流模型，$f_{\boldsymbol{\theta}}^{-1}(\cdot)$代表流模型的逆过程，$\mathcal{N}(\mathbf{0}, \mathbf{I})$是高斯分布。流模型$f_{\boldsymbol{\theta}}(\cdot)$通常由更简单的流模型组成，即$f=f_1 \circ \ldots \circ f_{N-1} \circ f_N$，双射函数的组合仍然是双射的。
+
+根据变量的变化规则\cite{nice}，数据空间中的概率密度函数可以描述为：
+\begin{equation}
+	p_{\mathcal{X}}(\boldsymbol{x})=p_{\mathcal{Z}}\left(f_\theta(\boldsymbol{x})\right)\left|\operatorname{det} \mathbf{D} f_\theta(\boldsymbol{x})\right|
+\end{equation}
+其中$\mathbf{D} f_\theta(\boldsymbol{x})=\partial f_\theta(\boldsymbol{x}) / \partial \boldsymbol{x}$是流模型$f_{\boldsymbol{\theta}}(\cdot)$在$\boldsymbol{x}$处的雅各比矩阵。
+
+给定一个数据集$\mathcal{X}=\left\{\boldsymbol{x}_i\right\}_{i=1}^M$，可以使用负对数似然损失函数\cite{nice}训练归一化流模型，表示为：
+\begin{equation}
+	\mathcal{L}(\mathcal{X} ; \boldsymbol{\theta})=\sum_{i=1}^M \log p_{\mathcal{Z}}\left(f_{\boldsymbol{\theta}}\left(\boldsymbol{x}_i\right)\right)-\log \left|\operatorname{det}\left(\frac{\partial f_{\boldsymbol{\theta}}\left(\boldsymbol{x}_i\right)}{\partial \boldsymbol{x}_i}\right)\right|
+	\label{nllloss}
+\end{equation}
+其中$M$是数据集的大小。
+
+本文的流模型架构将基于Kingma等人提出的Glow模型\cite{glow}进行改进，具体改进后的架构将在下文详细叙述，Glow模型的架构如下图所示：
+
+\begin{figure}[htbp]
+	\centering
+	\begin{subfigure}{0.49\linewidth}
+		\centering
+		\includegraphics[width=\linewidth]{imgs/onestep.pdf}
+
+		\label{onestep}%文中引用该图片代号
+	\end{subfigure}
+	\centering
+	\begin{subfigure}{0.49\linewidth}
+		\centering
+		\includegraphics[width=\linewidth]{imgs/glow.pdf}
+	
+		\label{glow}%文中引用该图片代号
+	\end{subfigure}  
+	
+	\caption{Glow的单步和整体架构\cite{glow}}
+\end{figure}
+
+\subsection{标准化流在底层视觉领域的应用}
+
+本文将在该节介绍基于标准化流模型的核先验（Flow-based Kernel Prior，FKP）以及基于标准化流模型的噪声建模（Noise Modeling wth Conditional Flows，Noise Flow）。
+
+FKP由Liang等人在2021年的论文《Flow-based Kernel Prior with Application to Blind Super-Resolution》\cite{fkp}中提出，主要用于解决图像盲超分辨率的问题。和图像去噪一样，图像超分辨率也是一项基本的底层视觉任务，其目标是从低分辨率输入中恢复高分辨率图像。随着深度学习的发展，基于神经网络的方法在图像超分辨率任务中越来越流行。相比于图像去噪，图像超分辨率任务所需要的先验知识是模糊核，然而现有工作大多假设模糊核是固定和已知的，即非盲超分，这会导致实际应用中的性能急剧下降。因此，与图像盲去噪一样，以处理未知模糊核为目标的图像盲超分辨率正成为一个活跃的研究课题。
+
+此前的研究已经证明，较差的核估计会导致超分图像估计的性能严重下降\cite{ikc}。虽然已经有很多研究提出了各种图像先验\cite{dip,dgp}来描述自然图像，但很少有研究关注核先验的设计。FKP提出了一种基于标准化流的核先验用于建模模糊核。通过学习各向异性高斯核分布和可潜在分布之间的可逆映射，FKP很容易作为一种先验知识嵌入各种超分辨率模型中。作者在文章中将FKP替换掉DoubleDIP\cite{doubledip}和KernelGAN\cite{kernelgan}的核建模模块，在实验中取得了更好的效果。具体而言，FKP在潜在空间而不是网络参数空间中优化核，这使得它能够生成合理的核先验，提高优化稳定性，进一步提升超分辨率的效果。
+
+%类似上文提到过的DIP，双重深度图像先验（DoubleDIP）\cite{doubledip}仍把网络结构作为唯一先验来对模糊核进行建模，基于对抗神经网络的核估计（KernelGAN）\cite{kernelgan}则提出基于采用深度线性网络和若干正则化损失来约束核空间。
+
+FKP建模图像退化问题为：
+\begin{equation}
+	\mathbf{y}=(\mathbf{x} \otimes \mathbf{k}) \downarrow_s+\mathbf{n}
+\end{equation}
+其中$\mathbf{x} \otimes \mathbf{k}$表示$\mathbf{x}$和模糊核$\mathbf{k}$之间的卷积，$\downarrow_s$表示具有比例因子为$s$的下采样操作，$\mathbf{n}$表示噪声。特别地，一些盲超分方法旨在同时估计高分辨率图像和模糊核。根据最大后验概率框架，它可以表示：
+\begin{equation}
+	\mathbf{x}^*, \mathbf{k}^*=\underset{\mathbf{x}, \mathbf{k}}{\arg \min }\left\|\mathbf{y}-(\mathbf{x} \otimes \mathbf{k}) \downarrow_s\right\|^2+\lambda \Phi(\mathbf{x})+\gamma \Omega(\mathbf{k})
+\end{equation}
+
+其中$\left\|\mathbf{y}-(\mathbf{x} \otimes \mathbf{k}) \downarrow_s\right\|^2$是数据保真度项，$\Phi(\mathbf{x})$表示图像先验，$ \Omega(\mathbf{k})$表示核先验，$\lambda$和$\lambda$是权衡参数。
+
+FKP由几个流模块组成，学习模糊核$\mathbf{k}$和潜在变量$\mathbf{z_k}$之间的可逆映射。每个流模块包括三个连续的层：仿射变换层、置换层和批量归一化层。图\ref{fig:fkp}为FKP网络的示意图。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=1.0\textwidth]{imgs/fkp.pdf}
+	\caption{FKP网络的示意图。\cite{fkp}}
+	\label{fig:fkp}
+\end{figure}
+
+本文借鉴了FKP在图像超分辨率任务上的思路，不直接估计图像的退化，而是先估计图像复原所需要的先验知识。FKP是预先估计模糊核，基于估计出的模糊核来复原低分辨率图像，本文提出的模型则是先估计噪声参数，基于噪声参数生成噪声，最后进行去噪任务。
+
+Noise Flow由Abdelhamed等人在2019年的论文《Noise Flow: Noise Modeling With Conditional Normalizing Flows》\cite{noiseflow}中提出，也是一种噪声先验学习方法。
+
+Noise Flow建模噪声图像为：
+\begin{equation}
+	\tilde{\mathbf{I}}=\mathbf{I}+\mathbf{n}
+\end{equation}
+其中$\tilde{\mathbf{I}}$为噪声图像，$\mathbf{I}$为潜在的干净图像，$\mathbf{n}$为噪声。Noise Flow并没有对噪声模型作进一步研究，而是简单将$\mathbf{n}$定义为一个异方差高斯模型：
+\begin{equation}
+	n_i \sim \mathcal{N}\left(0, \alpha^2 \mathbf{I}_i+\delta^2\right)
+\end{equation}
+且噪声模型在Noise Flow模型的作用主要是作为条件信息进入模型，以进一步提升先验学习效果。Noise Flow的架构由Glow模型改进而来，如图\ref{fig:noiseflow}所示.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=1.0\textwidth]{imgs/noiseflow.pdf}
+	\caption{Noise Flow模型的示意图。\cite{noiseflow}}
+	\label{fig:noiseflow}
+\end{figure}
+
+可以从图中看出，Noise Flow选择直接从潜在变量空间得到噪声模式，根据作者的实验设置，需要生成$64 \times 64$大小的数据。受Noise Flow模型的启发，本文也选择使用标准化流模型来生成噪声，但本文所处提出的流模型仅需生成$1 \times 5$的数据，极大地优化了生成准确率。在实验部分，本文的方法将与Noise Flow进行对比。
+
+\section{噪声模型}
+
+建立噪声模型的基本思想是通过识别和量化噪声数据的统计特征来模拟每个噪声分量。噪声参数校准方法可分为两类。一种方法基于数理统计\cite{ccdcmos}，利用噪声数据的统计特征来估计噪声模型的参数，如最大似然估计法和贝叶斯估计法\cite{cmoscalibration,ccdcalibration}，另一种则是基于深度学习技术。本文将在本节介绍一种现在最先进的噪声建模方法。
+
+Wei等人在论文《Physics-based noise modeling for extreme low-light photography》\cite{eld}中提出了一种基于物理的噪声模型ELD，以及一种为可用的现代数码相机校准噪声参数的方法。ELD建模噪声如下：
+\begin{equation}
+	D=K I+N
+\end{equation}
+其中，$D$表示单次成像过程中传感器所输出的灰度值，$I$表示单次成像过程中传感器所接收到的光电子，$N$表示单次成像过程中传感器成像过程中所有噪声的总和，$K$值称为全局系统增益。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=1.0\textwidth]{imgs/eld.pdf}
+	\caption{ELD提出的噪声模型。\cite{eld}}
+	\label{fig:eld}
+\end{figure}
+
+从光子通量$I$开始，仿照ELD的行文思路，本文将分阶段叙述ELD中每个阶段所引入的噪声。
+
+在光子到电子转换的阶段，由于光的量子性质，收集到的电子数量不可避免地存在不确定性。这种不确定性对光子噪声$N_p$施加了泊松分布：
+\begin{equation}
+	\left(I+N_p\right) \sim \mathcal{P}(I)
+\end{equation}
+光子噪声是一个基本的限制，即使是完美的传感器也无法避免。
+
+在电子到电压转换的阶段，光不均匀响应可以忽略\cite{nonuniform}，暗电流带来的噪声$N_d$、热噪声$N_t$以及源跟随噪声$N_s$一起作为读取噪声$N_{read}$:
+\begin{equation}
+	N_{\text {read }}=N_d+N_t+N_s
+\end{equation}
+读取噪声一般来说会用高斯分布表示，但作者通过对实际数据的分析发现了暗光条件下噪声形状的长尾性质。因此，作者通过 Tukey lambda分布对读取噪声进行建模，这是一个分布族，可以近似许多常见分布：
+\begin{equation}
+	N_{read } \sim T L\left(\lambda ; 0, \sigma_{T L}\right)
+\end{equation}
+尽管零均值噪声假设在大多数情况下适用，但作者发现它在极端弱光设置下失效。作者将这个零均值偏差归因为不可避免的直流电流，将直流电流噪声分量建模为读取噪声模型的平均值：
+\begin{equation}
+	N_{read } \sim T L\left(\lambda ; \mu_c, \sigma_{T L}\right)
+\end{equation}
+
+ELD模型最后引入了行噪声$N_r$来解释带状噪声$N_b$。虽然$N_b$可能在图像中作为水平线或垂直线出现，但ELD模型只考虑模型中的行分量，即水平条纹，相关双采样基本可以消除列噪声，这里就只需要用高斯分布来模拟行噪声：
+\begin{equation}
+	N_r \sim \mathcal{N}\left(0, \sigma_r\right)
+\end{equation}
+
+在电压到数字信号转换的阶段，模数转换器（Analog-to-Digital Converter，ADC）对信号的离散化会带来量化噪声$N_q$，可以被假定符合均匀分布：
+\begin{equation}
+	N_q \sim U(-1 / 2 q, 1 / 2 q)
+\end{equation}
+
+最终的噪声$N$表达式可以描述为：
+\begin{equation}
+	N=K N_p+N_{\text {read }}+N_r+N_q
+\end{equation}
+
+本文的噪声模型主要由ELD改进而来，具体的改进将在下文描述。
+
+

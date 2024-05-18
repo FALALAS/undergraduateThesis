@@ -1,0 +1,375 @@
+\chapter{文献翻译：USR-DU}
+
+Learning Degradation Uncertainty for Unsupervised Real-world Image Super-resolution
+
+关于无监督真实世界超分辨率的退化不确定性学习
+
+Abstract
+
+摘要
+
+Acquiring degraded images with paired highresolution (HR) images is often challenging, impeding the advance of image super-resolution in real-world applications. By generating realistic low-resolution (LR) images with degradation similar to that in real-world scenarios, simulated paired LR-HR data can be constructed for supervised training. However, most of the existing work ignores the degradation uncertainty of the generated realistic LR images, since only one LR image has been generated given an HR image. To address this weakness, we propose learning the degradation uncertainty of generated LR images and sampling multiple LR images from the learned LR image (mean) and degradation uncertainty (variance) and construct LR-HR pairs to train the super-resolution (SR) networks. Specifically, uncertainty can be learned by minimizing the proposed loss based on Kullback-Leibler (KL) divergence. Furthermore, the uncertainty in the feature domain is exploited by a novel perceptual loss; and we propose to calculate the adversarial loss from the gradient information in the SR stage for stable training performance and better visual quality. Experimental results on popular real-world datasets show that our proposed method has performed better than other unsupervised approaches.
+
+使用成对的高分辨率图像获取退化图像通常是具有挑战性的，这阻碍了图像超分辨率在实际应用中的进展。通过生成具有类似于实际场景中的退化的逼真低分辨率（LR）图像，可以构建模拟配对的LR-HR数据以进行监督训练。然而，大多数现有的工作忽略了生成的逼真LR图像的退化不确定性，因为给定HR图像只生成了一个LR图像。为了解决这个问题，我们提出学习生成的LR图像的降级不确定性，并从学习的LR图像（均值）和退化不确定性（方差）中采样多个LR图像，构建LR-HR对来训练超分辨率（SR）网络。具体而言，不确定性可以通过最小化所提出的基于Kullback-Leibler（KL）散度的损失来学习。此外，通过一种新颖的感知损失利用特征域中的不确定性；我们建议从SR阶段的梯度信息中计算对抗性损失，以获得稳定的训练性能和更好的视觉质量。流行的真实世界数据集上的实验结果表明，我们提出的方法比其他无监督方法表现更好。
+
+Introduction
+
+引言
+
+Single image super-resolution (SISR) aims to recover highresolution (HR) images from their corresponding degraded low-resolution (LR) images. Following the pioneering study SRCNN [Dong et al., 2014], many deep learning-based works employ convolutional neural networks in the SISR domain with promising results - e.g., Enhanced Deep residual networks for SR (EDSR) [Lim et al., 2017], Enhanced SR Generative Adversarial Networks (ESRGAN) [Wang et al., 2018], Residual Channel Attention Networks (RCAN) [Zhang et al., 2018], deep unfolding network (MoG-DUN) [Ning et al., 2021b].
+
+单幅图像超分辨率重建( Single Image Super-resolution，SISR )旨在从退化的低分辨率图像中恢复出高分辨率图像。继SRCNN [Dong et al. , 2014]的开创性研究之后，许多基于深度学习的工作将卷积神经网络应用于SISR领域，并取得了很好的效果，如增强型深度残差网络(Enhanced Deep Residual Networks for SR，EDSR) [Lim et al., 2017]、增强型SR生成对抗网络( Enhanced SR Generative Adversarial Networks，ESRGAN) [Wang et al., 2018]、残差通道注意力网络(Residual Channel Attention Networks，RCAN) [Zhang et al., 2018]、深度展开网络(Deep Defined Network，MoG-DUN) [Ning et al., 2021b]等。
+
+Despite the extensive studies that have been published, most of those deep learning-based methods [Dong et al., 2014; Lim et al., 2017; Zhang et al., 2018; Ning et al., 2021b; Wang et al., 2018] are trained by synthetic datasets such as bicubic degradation, suffering from the poor generation property of real-world datasets. To alleviate this situation, Cai et al. built a real-world dataset called RealSR [Cai et al., 2019], consisting of LR-HR pairs by modifying the focal length of the cameras to obtain different resolution image pairs. Along this line of research, several works [Chen et al., 2019; Ignatov et al., 2017] have constructed new real-world datasets to meet the realistic requirement.
+
+尽管已经发表了大量的研究，但大多数基于深度学习的方法[Dong et al., 2014; Lim et al., 2017; Zhang et al., 2018; Ning et al., 2021b; Wang et al., 2018]都是通过双三次退化等合成数据集来训练的，而这些数据集的生成性很差。为了缓解这种情况，Cai等人构建了一个名为RealSR [Cai et al., 2019]的真实世界数据集，通过修改相机的焦距来获得不同分辨率的图像对，由LR - HR对组成。沿着这一研究路线，一些工作[Chen et al., 2019; Ignatov et al., 2017]构建了新的真实数据集以满足现实需求。
+
+However, it is still cumbersome and labor intensive to obtain the corresponding LR-HR pairs on a large scale. More recently, some work [Fritsche et al., 2019; Wei et al., 2021; Son et al., 2021] has proposed to train SR networks unsupervised by generating LR images from HR training images using unpaired datasets. Specifically, to obtain realistic LR images, a content loss with bicubic downsampled LR images has been used to maintain the same content, while a GAN loss with real-world LR images has been used to obtain realistic textures and details. Then, the SR or SRGAN networks can be trained by using the generated LR-HR pairs. FSSR [Fritsche et al., 2019] proposed a frequency separation strategy to apply the GAN loss only to high-frequency components. Furthermore, DASR [Wei et al., 2021] proposed reconstructing more realistic images by domain gap-sensitive training. Deflow [Wolf et al., 2021] proposed to model the degradation process with conditional flows.
+
+然而，大规模获得相应的LR - HR对仍然是繁琐和劳动密集型的。最近，一些工作[Fritsche et al., 2019; Wei et al., 2021; Son et al., 2021]提出使用未配对的数据集从HR训练图像生成LR图像来无监督地训练SR网络。具体来说，为了获得逼真的低分辨率图像，使用双三次下采样低分辨率图像的内容损失来保持相同的内容，而使用真实低分辨率图像的GAN损失来获得逼真的纹理和细节。然后，利用生成的LR - HR对训练SR或SRGAN网络。FSSR [Fritsche et al., 2019]提出了一种频率分离策略，将GAN损失仅应用于高频部分。此外，DASR [Wei et al., 2021]提出通过域间距敏感训练重建更真实的图像。Deflow [Wolf et al., 2021]提出用条件流对退化过程进行建模。
+
+Although promising results have been achieved with these unsupervised approaches [Fritsche et al., 2019; Wei et al., 2021], these works only learned a single deterministic mapping model, completely ignoring the uncertainty of degradation in real LR images caused by the inevitable randomness of real degradation. Some recent work such as FSSR [Fritsche et al., 2019] and DASR [Wei et al., 2021] only generated one LR image instead of multiple different LR images with a single corresponding HR image, which is not in accordance with real-world situation considering more influence factors such as stochastic noise, etc. The question of how to generate multiple different but similar LR images from single HR images remains to be studied.
+
+尽管这些无监督方法[Fritsche et al., 2019; Wei et al., 2021]取得了很好的效果，但是这些工作只学习了单一的确定性映射模型，完全忽略了真实LR图像退化过程中的真实情况下不可避免的随机性造成的不确定性。最近的一些工作如FSSR [Fritsche et al., 2019]和DASR[Wei et al., 2021]仅生成了一幅低分辨率图像，而不是由单幅高分辨率图像生成对应的多幅不同的低分辨率图像，这与考虑随机噪声等更多影响因素的真实情况不符。如何从单幅HR图像生成多幅不同但相似的LR图像的问题还有待研究。
+
+In this paper, we propose a novel approach called USR-DU for unsupervised real-world image SR with learned degradation uncertainty. First, we propose learning realistic LR images and the corresponding degradation uncertainty simultaneously and sampling multiple LR images from the learned LR image (mean) and degradation uncertainty (variance). Then, any existing SR/SRGAN networks that require supervised training can be trained with newly constructed LR-HR pairs. Specifically, uncertainty can be learned by minimizing the proposed $\mathcal{L}_{kl}$ based on Kullback-Leibler (KL) divergence. Meanwhile, we propose to exploit the uncertainty in the feature domain, resulting in a novel perceptual loss function. Finally, we propose to calculate the adversarial loss from the gradient information in the SR stage for more stable training and better visual quality. We have conducted experiments on both RealSR [Cai et al., 2019] and NTIRE2020 [Lugmayr et al., 2020] real-world super-resolution challenging datasets. Experimental results on those real-world datasets show that our proposed method has performed better than other competing approaches based on unsupervised learning.
+
+在本文中，我们提出了一种称为USR-DU的新方法，用于具有学习退化不确定性的无监督真实图像SR。首先，我们提出同时学习真实的LR图像和相应的退化不确定性，并从学习到的LR图像(均值)和退化不确定性(方差)中采样多个LR图像。然后，任何需要监督训练的现有SR/SRGAN网络都可以用新构建的LR-HR对进行训练。具体来说，不确定性可以通过最小化所提出的基于Kullback-Leibler(KL)散度的$\mathcal{L}_{kl}$来学习。同时，我们提出利用特征域中的不确定性，获得了一个新的感知损失函数。最后，我们提出在SR阶段从梯度信息计算对抗损失，以获得更稳定的训练和更好的视觉质量。我们在RealSR[Cai et al., 2019]和NTIRE2020[Lugmayr et al., 2020]真实超分辨率挑战数据集上进行了实验。在这些真实数据集上的实验结果表明，我们提出的方法比其他基于无监督学习的竞争的方法表现更好。
+
+Related Work
+
+相关工作
+
+Uncertainty in Computer Vision
+
+计算机视觉中的不确定性
+
+The uncertainty of the data describes the noise inherent in observed data, which has been widely studied in computer vision. The performance and robustness of deep networks can be improved by modeling the uncertainty in the observation data [Kendall and Gal, 2017]. In [Chang et al., 2020], they modeled the uncertainty of the data with estimated mean and variance in face recognition, achieving stronger performance in noisy training data. Ning et al. [Ning et al., 2021a] proposed an adaptive weighted loss for SISR by assigning higher uncertainty pixels with higher weights during training. In common, those works mainly focus on the uncertainty of pair data in supervised training. Unlike those works, we propose to model the degradation uncertainty of unpaired data. With the estimated degradation uncertainty, multiple LR images can be sampled from learned LR images (mean) and uncertainty (variance) for training super-resolution (SR) networks.
+
+数据的不确定性描述了观测数据中固有的噪声，在计算机视觉中得到了广泛的研究。通过对观测数据[Kendall and Gal, 2017]中的不确定性进行建模，可以提高深度网络的性能和鲁棒性。在[Chang et al., 2020]中，作者用估计的均值和方差对人脸识别中数据的不确定性进行建模，在有噪声的训练数据中取得了更强的性能。Ning等人[Ning et al., 2021a]提出了一种自适应加权损失的SISR方法，通过在训练过程中分配具有更高权重的不确定性像素。总的来说，这些工作主要关注有监督训练中配对数据的不确定性。与这些工作不同，我们提出对未配对数据的退化不确定性进行建模。根据估计的退化不确定性，可以从学习到的LR图像(均值)和不确定性(方差)中采样多个LR图像用于训练超分辨率(SR)网络。
+
+Unsupervised Real-world Image SR
+
+无监督的真实世界图像超分辨率
+
+The difficulty of obtaining paired HR and degraded images has facilitated the advancement of unsupervised real-world image SR. FSSR [Fritsche et al., 2019] and DASR [Wei et al., 2021] proposed to first generate realistic LR images and train the SR network on generated paired data by domainbased adversarial loss. Those two works only learn a single deterministic mapping model without realizing the uncertainty of degradation. DeFlow [Wolf et al., 2021] proposed learning the LR images with the conditional flow by an invertible network. Although multiple LR images can be sampled by giving different random initial Gaussian noises, complex degradation learning is constrained by the limited representation ability of the invertible network. DAP [Wang et al., 2021a] proposed to align the degradation distribution in the feature domain with several regularization losses. However, DAP suffers from convergence and mode collapse issues and requires careful tuning of multiple losses. Different from those works, we propose learning the realistic LR images and degradation uncertainty simultaneously. Sampling from learned LR images (means) and uncertainty (variance), more robustly paired training data can be constructed, leading to better real SR performance.
+
+获得配对HR和降质图像的困难促进了无监督真实世界图像SR的发展。FSSR[Fritsche et al., 2019]和DASR[Wei et al., 2021]提出首先生成逼真的低分辨率图像，通过基于域的对抗损失在生成的成对数据上训练超分辨网络。这两项工作只学习了单一的确定性映射模型，没有意识到退化的不确定性。DeFlow[Wolf et al., 2021]提出通过可逆网络学习带有条件流的LR图像。尽管可以通过给定不同的随机初始高斯噪声来采样多幅LR图像，但复杂的退化学习受到可逆网络有限表征能力的制约。DAP[Wang et al., 2021a]提出使用多个正则化损失来对齐特征域中的退化分布。然而，DAP存在收敛和模式崩溃问题，需要仔细调节多个损失函数。与这些工作不同，我们提出同时学习真实LR图像和退化不确定性。从学习到的LR图像(均值)和不确定性(方差)中采样，可以构建更健壮的配对训练数据，从而获得更好的真实SR性能。
+
+Methodology
+
+方法
+
+In unsupervised SR, only unpaired real LR and real HR images are provided for training. Let X represent the real HR images dataset and x denote samples. Similarly, the real LR image dataset can be expressed by Yr and samples can be represented by yr. Note that the HR version of the corresponding LR image yr is not provided. In unsupervised SR learning [Fritsche et al., 2019; Wei et al., 2021; Wolf et al., 2021], the training process can be divided into two steps. The first step aims to generate realistic degraded LR images yg from HR images x. In this way, paired training data can be constructed and any existing SR networks requiring pair training can be trained. Therefore, the key to unsupervised SR lies in the generation of realistic LR images. In the first step, an LR version of the HR image x is needed to maintain the consistency of the content. In this paper, we simply adopt bicubic downsampling to generate the LR images denoted as yb. With the above conditions, the proposed unsupervised real-world image super-resolution approach (USR-DU) with learned degradation uncertainty will be introduced in this section. The framework of the proposed method is shown in Fig. 1.
+
+在无监督SR中，只提供未配对的真实LR和真实HR图像用于训练。设X表示真实的HR图像数据集，x表示样本。类似的，真实的LR图像数据集可以用Yr表示，样本可以用yr表示。注意，LR图像yr的HR版本是没有提供的。在无监督SR学习[Fritsche et al., 2019; Wei et al., 2021; Wolf et al., 2021]中，训练过程可以分为两步。第一步，从HR图像x生成真实的退化的LR图像yg。这样就可以构建成对的训练数据，并且可以训练任何现有的需要成对训练的SR网络。因此，无监督超分辨率重建的关键在于生成逼真的低分辨率图像。在第一步中，需要HR图像x的LR版本来保持内容的一致性。在本文中，我们简单地采用双三次降采样来生成LR图像yb。在上述条件下，本节将介绍提出的具有学习退化不确定性的无监督真实世界图像超分辨率方法(USR-DU)。所提方法的框架如图1所示。
+
+In the next parts of this section, we first present how we train a downsampling network (DSN) to generate the realistic LR and estimate the degradation uncertainty. Then, we introduce our super-resolution network (SRN) training strategy with learned degradation uncertainty.
+
+在本节接下来的部分中，我们首先介绍了如何训练一个降采样网络(DSN)来生成真实的LR并估计退化不确定性。然后，我们介绍了我们的学习退化不确定性的超分辨率网络(SRN)训练策略。
+
+Learning Degradation Uncertainty in DSN
+
+学习降采样网络中的退化不确定性
+
+Learning degradation uncertainty in pixels domain. Generally, three types of losses, that is, content loss, perceptual loss, and GAN loss, will be used to generate realistic LR images during the training downsampling network. Content loss is used $L_{1/2}$ to maintain content consistency in the downsampling step. Taking the L1 loss as an example, the likelihood of a generated LR image can be formulated as
+
+在像素域学习退化不确定性。通常，在训练降采样网络的过程中，会使用三种类型的损失，即内容损失、感知损失和GAN损失来生成逼真的LR图像。在下采样步骤中使用内容损失$L_{1/2}$来保持内容一致性。以L1损失为例，生成LR图像的似然可以表示为
+
+where f (W )(·) denotes a parameterized downsampling network of W and c denotes the variance, which is a spatially invariant constant. In this way, the degradation process was modeled as a deterministic mapping, ignoring the uncertainty of degradation of the degraded LR images. This means that only a single degraded LR image yg was generated when a clean HR image was given x. To address this issue, we propose learning the degraded LR images (means) and the degradation uncertainty (variance) simultaneously. Our empirical study shows that the differences between the real LR and the bicubic downsampled LR images can be well characterized by a Laplacian distribution (while the Gaussian distribution failed), as shown in Fig. 2. Based on this observation, we propose to learn the degradation uncertainty by minimizing the KL divergence of two Laplacian distributions. By explicitly constraining L(yg;  ) to be close to a Laplacian distribution L(yb; I), the uncertainty can be learned by minimizing the Kullback-Leibler (KL) divergence of two Laplacian distributions, which can be formulated as
+
+其中f ( W ) ( · )表示W的参数化下采样网络，c表示方差，是一个空间不变的常数.这样，退化过程被建模为确定性映射，忽略了退化LR图像退化的不确定性。这意味着当给定一幅干净的HR图像x时，只生成一幅退化的LR图像yg。为了解决这个问题，我们提出同时学习退化LR图像(均值)和退化不确定性(方差)。我们的实证研究表明，真实LR和双三次降采样LR图像之间的差异可以很好地用拉普拉斯分布来表征，(而高斯分布失败了)，如图2所示。基于这一观察，我们提出通过最小化两个Laplacian分布的KL散度来学习退化不确定性。通过显式约束L( yg ;)接近一个拉普拉斯分布L( yb ; I )，不确定性可以通过最小化两个拉普拉斯分布的库尔贝克-莱布勒( KL )散度来学习，该散度可以表示为
+
+By learning the degradation uncertainty, multiple different but similar degraded versions of a single clean HR image can be sampled according to the learned LR image yg (mean) and degradation uncertainty $\theta$ (variance). The construction of LR-HR training pairs will be illustrated in Sec. 3.2.
+
+通过对退化不确定性的学习，可以根据学习到的LR图像yg (均值)和退化不确定性$\theta$(方差)对单幅干净HR图像的多个不同但相似的退化版本进行采样。LR - HR训练对的构建将在3.2节中说明。
+
+Learning uncertainty in features domain. In the above discussion, we study the uncertainty of degradation in the pixel domain. Still, there is uncertainty in the feature domain which can be explored in perceptual loss. Normally, the perceptual loss can be formulated as
+
+特征域的不确定性学习。在上述讨论中，我们研究像素域退化的不确定性。尽管如此，特征域中仍然存在不确定性，可以在感知损失中进行探索。通常，感知损失可以表示为
+
+where  (·) denotes the feature extractor. In this paper, we propose learning the degradation in both the pixel and feature domains. Similarly to the formulation of content loss, the uncertainty   in the feature domain can be learned by minimizing the KL divergence of feature distributions (e.g., L( (yg);  ) and L( (yb); I)), which can be expressed by
+
+其中( · )表示特征提取器。在本文中，我们提出在像素域和特征域同时学习退化。类似于内容损失的表述，特征域中的不确定性可以通过最小化特征分布( e.g. , L ( ( yg)的KL散度来学习；)和L ( ( Yb )；I ) )，可表示为
+
+In our implementation, we calculated the perceptual loss on VGG19 features of the conv5 4 convolutional layer. Exploring the uncertainty in the feature domain further facilitates the better generation of realistic LR images yg.
+
+在我们的实现中，我们计算了VGG19的Conv5-4特征上的感知损失。探索特征域中的不确定性进一步有利于更好地生成逼真的LR图像yg。
+
+Adversarial loss. For more stable training and visually pleasant results, we adopt the FSSR training strategy [Fritsche et al., 2019], which only calculates the adversarial loss from the high-frequency information that is filtered by the Gaussian blur kernel. The adversarial loss for the training generator can be formulated as follows.
+
+对抗损失。为了更稳定的训练和视觉愉悦的结果，我们采用FSSR训练策略[弗里切等, 2019]，该策略仅从高斯模糊核过滤后的高频信息中计算对抗损失。训练生成器的对抗损失可以表述如下。
+
+and the loss for the discriminator can be formulated as
+
+并且判别器的损失可以表示为
+
+where D(·) denotes the discriminator and F (·) denotes the Gaussian high-frequency filter sized by $5\times5$ in our implementation. Calculating adversarial loss from high-frequency information ignores low-frequency information, which is less relevant to the degradation and focuses more on the details of image degradation. Furthermore, such a training strategy reduces the difficulty of GAN training [Fritsche et al., 2019].
+
+式中：D ( · )为判别器，F ( · )为我们实现的$5\times5$大小的高斯高频滤波器。从高频信息计算对抗损失忽略了低频信息，与退化相关性较小，更关注图像退化的细节。此外，这样的训练策略降低了GAN训练[弗里切等, 2019]的难度。
+
+Training details. In our implementation, the DSN generator network consists of 8 residual blocks to extract information from the HR image, as shown in Fig. 3. Each residual block contains two convolutional layers and a PReLU activation between them. Then, the convolutional layer with step 2 is employed to reduce the spatial resolution of the features. In the end, three different heads are adopted to transform the features into LR-degraded images, as well as the degradation uncertainty in pixels and feature domains, respectively, as shown in Fig. 3. We adopt U-net [Wang et al., 2021b] as a DSN discriminator. The whole DSN is trained by the combination of three losses:
+
+培训细节。在我们的实现中，DSN生成器网络由8个残差块组成，用于从HR图像中提取信息，如图3所示。每个残差块包含两个卷积层以及它们之间的一个PReLU激活。然后，使用步骤2的卷积层降低特征的空间分辨率。最后，采用3种不同的头将特征转化为LR退化图像，并分别在像素和特征域中考虑退化不确定性，如图3所示。我们采用U - net [ Wang et al , 2021b]作为DSN判别器。整个DSN通过三种损失的组合进行训练：
+
+where $\alpha_1$ = 1; $\alpha_2$ = 0.01; $\alpha_3$ = 0.01. We randomly select 16 RGB HR patches sized by 256x256 as batch input. The initial learning rate is 0.0001 and decreases by half for every 100 epochs. We train the model for 500 epochs.
+
+其中$\alpha_1$ = 1; $\alpha_2$ = 0.01; $\alpha_3$ = 0.01。随机选取16个大小为256x256的RGB HR块作为批量输入。初始学习率为0.0001，每100轮减少一半。我们训练了500轮的模型。
+
+
+
+
+
+Experiments and Results
+
+实验和结果
+
+Experimental Settings
+
+实验设置
+
+Datasets. RealSR [Ji et al., 2020] provided LR-HR pairs captured by adjusting the focal length of the camera. Due to cumbersome and labor intensive image collection and challenging post-processing, only a limited number of (about 200 pairs) training pairs have been provided. In our experiments, only 200 degraded LR images collected by the Canon camera are used as real LR images, while the DIV2K dataset provides HR images to train the DSN. Additionally, the RealSR validation set is used for evaluation. NTIRE 2020 RWSR [Lugmayr et al., 2020] challenge offers two tracks for unsupervised SR training. The HR images from DIV2K are used as HR images in both tracks. In Track1, the synthetic degraded Flickr2K dataset is treated as real LR images. Furthermore, Track1 provides a validation dataset for quantitative comparison, which contains 100 images with the same degradation as the training LR images. In Track2, the real degraded LR images are derived from the DPED dataset, which consists of real low-quality images from iphone3. Note that Track2 does not provide reference images for evaluation.
+
+数据集。RealSR[Ji et al., 2020]通过调节相机的焦距提供LR-HR对。由于图像采集的繁琐和劳动密集以及后期处理的挑战性，仅提供了有限数量的(约200对)训练对。在我们的实验中，仅使用佳能相机采集的200张退化LR图像作为真实LR图像，而DIV2K数据集提供HR图像来训练DSN。此外，使用RealSR验证集进行评估。NTIRE 2020 RWSR[Lugmayr et al., 2020]挑战赛为无监督SR训练提供了两条赛道。DIV2K的HR图像被用作两个赛道上的HR图像。在赛道1中，合成的退化Flickr2K数据集被视为真实的LR图像。此外，赛道1提供了一个用于定量比较的验证数据集，该数据集包含100张与训练集LR图像具有相同退化的图像。在Track2中，真实的退化的LR图像来自DPED数据集，该数据集由来自iphone3的真实低质量图像组成。需要说明的是，Track2没有提供评价的参考图像。
+
+Evaluation metrics. For the dataset that provides HR reference images in the test set, we adopt reference-based evaluation metrics for assessment, such as PSNR, SSIM. Furthermore, the Learning Perceptual Image Patch Similarity (LPIPS) has been used as our perceived quality assessment metric. Since LPIPS correlates well with human perception quality, it is considered the most important metric among the three reference metrics. For the Track2 data set of NTIRE, for which HR reference images are not available, we adopted NIQE as our evaluation metric.
+
+评价指标。对于测试集中提供HR参考图像的数据集，我们采用基于参考的评价指标进行评估，如PSNR、SSIM等。此外，学习感知图像块相似度(Learning Perceptual Image Patch Similarity，LPIPS)已被用作我们的感知质量评估指标。由于LPIPS与人类感知质量有很好的相关性，它被认为是三个参考指标中最重要的指标。对于无法获得HR参考图像的NTIRE的赛道2数据集，我们采用NIQE作为评价指标。
+
+Ablation Study
+
+消融实验
+
+To further verify the effectiveness of the proposed approach, we have conducted an ablation study by comparing the final results of the SRN PSNR/SSIM/LPIPS. Our ablation study has been carried out in the NTIRE 2020 Track1 dataset [Lugmayr et al., 2020], and the results are shown in Table 1. The $\theta$ and $\sigma$ denote the uncertainty of learning degradation in pixels and feature domain, respectively, in the DSN stage. The Sampling denotes the application of the sampling strategy according to the learned degradation uncertainty $\theta$ and Gradient denotes the calculation of the adversarial loss from the gradient information in the SRN stage. It should be noted that 2† denotes the sampling of the LR images by $\hat{yg} = y_g + \epsilon I$ since no uncertainty has been learned in the DSN stage. The investigation can be divided into two parts as follows:
+
+为了进一步验证所提方法的有效性，我们通过对比SRN的PSNR/SSIM/LPIPS的最终结果进行了消融实验，我们的消融实验在NTIRE 2020 赛道1数据集[Lugmayr et al., 2020]中进行，结果如表1所示。$\theta$和$\sigma$分别表示在DSN阶段在像素和特征域学习退化的不确定性。“采样”表示根据学习到的退化不确定性$\theta$应用采样策略，“梯度”表示在SRN阶段利用梯度信息计算对抗损失。值得注意的是，由于在DSN阶段没有学习到不确定性，2表示LR图像的采样$\hat{yg} = y_g + \epsilon I$。实验可以分为以下两个部分：
+
+The effectiveness of learning the degradation uncertainty in pixels and features domains. The corresponding results are shown in Table 1. First, comparing situations 1 and 3, learning degradation uncertainty in the pixels domain and sampling the LR images with learned uncertainty can improve the performance of LPIPS, which is very relevant for the quality of human visual perception. Comparing situations 1, 3, and 5, learning degradation uncertainty in both pixels and features domain (marked as 5) can improve the performance in terms of PSNR, SSIM, and LPIPS, achieving the best performance. Additionally, to investigate the influence of sampling LR images on learned degradation uncertainty, we have conducted the experiment shown in 2† that setting the variance to $I$ and the sampling process can be expressed by $\hat{yg} = y_g + \epsilon I$. When comparing Situation 1, 2†, it can be observed that adding spatially invariant variance randomness cannot improve the performance and robustness of SR networks, while adopting the learned degradation uncertainty as spatially adaptive variance (marked as 3/5) can improve the performance and robustness of SR networks.
+
+学习的像素域和特征域退化不确定性的有效性。相应结果见表1。首先，对比情形1和情形3，在像素域学习退化不确定性，并对学习到不确定性的LR图像进行采样，可以提高LPIPS的性能，这与人类视觉感知质量非常相关。对比情形1、3、5，在像素域和特征域(标记为5)学习退化不确定性均能提升PSNR、SSIM、LPIPS性能，取得最优性能。此外，为了研究LR图像的采样对学习退化不确定性的影响，我们进行了实验2，设置方差为$I$，采样过程可以用$\hat{yg} = y_g + \epsilon I$表示。当比较情形1，2时，可以观察到加入空间不变的方差随机性并不能提高SR网络的性能和鲁棒性，而将学习退化不确定性作为空间自适应方差(标记为3/5)可以提高SR网络的性能和鲁棒性。
+
+The effectiveness of Calculating adversarial loss from gradient information. We have conducted experiments that calculate adversarial loss from gradient information or pixel values. The corresponding experimental results are shown as situations 4 and 5 in Table 1. Calculating the adversarial loss from the gradient information achieves better performance in terms of both SSIM and LPIPS (the lower, the better), demonstrating the effectiveness of the proposed approach.
+
+从梯度信息计算对抗损失的有效性。我们进行了从梯度信息或像素值计算对抗损失的实验。相应的实验结果如表1中的情形4和情形5所示。从梯度信息中计算对抗损失，在SSIM和LPIPS (越低越好)指标上均取得了较好的效果，证明了所提方法的有效性。
+
+Comparison with SOTA on NTIRE2020
+
+与NTIRE2020中最先进的方法的对比
+
+In this section, we have compared our proposed approach with other SR methods on two tracks of the NTIRE2020 challenge. Comparison methods include zero-shot SR (ZSSR) [Shocher et al., 2018] and real unsupervised SR methods such as Impressionism [Cai et al., 2019] (the winner of the NTIRE 2020 RWSR challenge), Deflow [Wolf et al., 2021] and DAP [Wang et al., 2021a]. The pre-trained ESRGAN (denoted as P.T. ESRGAN), which was trained on the bicubic degraded dataset, is also provided as a reference.
+
+在本节中，我们将我们提出的方法与其他SR方法在NTIRE2020挑战的两个轨道上进行了比较。对比方法包括zero-shot SR(ZSSR)[Shocher et al., 2018]和真实无监督SR方法如Impressionism[Cai et al., 2019](NTIRE 2020 RWSR挑战赛的获胜者)、Deflow[Wolf et al., 2021]和DAP[Wang et al., 2021a]。在双三次退化数据集上训练的预训练的ESRGAN(记为P . T . ESRGAN)也作为参考提供。
+
+The quantitative results of the comparison of Track1 and Track2 are shown in Table 2. In general, our proposed method achieved the best performance in terms of all metrics. Compared to the most competitive DeFlow method [Wolf et al., 2021], our proposed method consistently achieved the best result in the NTIRE2020 Track1 and Track2 datasets. Visual comparisons are shown in Fig. 4. It can be seen that our method has recovered the best results with the most realistic textures and details, such as the lime surface (shown in the first row of Fig. 4) and the edges of the petals (shown in the second row of Fig. 4). The visual results of Track2 are shown in the third row of Fig. 4. Although no GT image is provided as a reference, it can still be found that our recovered image contains fewer undesirable artifacts. We have also shown that the generated LR images and the learned degradation uncertainty in Fig. 6. The generated realistic LR images have degradation similar to that of real LR images, and the edges and texture areas tend to have a higher degradation uncertainty.
+
+赛道1和赛道2对比的量化结果如表2所示。总的来说，我们提出的方法在所有指标方面都取得了最好的性能。与最具竞争力的De Flow方法[ Wolf et al , 2021]相比，本文方法在NTIRE2020 赛道1和赛道2数据集上均取得了最好的结果。视觉比较见图4。可以看出，我们的方法以最真实的纹理和细节恢复了最好的结果，如橙子表面(如图4第一行所示)和花瓣边缘(如图4第二行所示)。赛道2的可视化结果如图4第3行所示。虽然没有提供GT图像作为参考，但仍然可以发现我们的恢复图像包含较少的不良伪影。我们还在图6中展示了生成的LR图像和学习到的退化不确定性。生成的真实低分辨率图像具有与真实低分辨率图像类似的退化，边缘和纹理区域往往具有更高的退化不确定性。
+
+Comparison with SOTA on RealSR dataset
+
+与RealSR数据集上最先进的方法的比较
+
+The RealSR dataset provides real LR-HR pairs for validation. We have compared our approach with several state-ofthe-art methods, including ZSSR [Shocher et al., 2018], pretrained ESRGAN (P.T. ESRGAN) which is trained on synthetic bicubic degradation, ZSSR+KernelGAN [Bell-Kligler et al., 2019] and DASR [Wei et al., 2021]. We also provide the results of the supervised trained ESRGAN (S.T. ESRGAN) for reference, which is trained by the real paired training data of RealSR.
+
+RealSR数据集提供了真实的LR-HR对用于验证。我们将该方法与几种先进的方法进行了比较，包括ZSSR[Shocher et al., 2018]、基于合成双三次退化训练的预训练ESRGAN(P. T. ESRGAN)、ZSSR + KernelGAN[Bell-Kligler et al., 2019]和DASR[Wei et al., 2021]。我们还提供了有监督训练的ESRGAN(S.T. ESRGAN)的结果供参考，它是由RealSR的真实配对训练数据训练的。
+
+The quantitative comparison is shown in Table 3, from which we can see that our proposed method achieves the best performance compared to other state-of-the-art methods. As shown in Fig. 5, our proposed approach recovers sharp images with pleasing details, clearly outperforming all other competing methods. Compared to DASR [Wei et al., 2021], images are recovered with fewer visible artifacts. When compared with S.T. ESRGAN which is trained in a supervised manner, our method produces sharper and clearer textures with less blurring effect.
+
+定量比较如表3所示，从表中可以看出，与其他先进方法相比，我们提出的方法取得了最好的性能。如图5所示，我们提出的方法恢复清晰的图像和令人愉快的细节，明显优于所有其他竞争方法。与DASR[Wei et al., 2021]相比，恢复的图像具有更少的可见伪影。与以监督方式训练的S. T. ESRGAN相比，我们的方法产生的纹理更清晰，模糊效应更小。
+
+Conclusion
+
+结论
+ 
+In this paper, we propose a novel approach called USR-DU for SR in unsupervised real-world images with learned degradation uncertainty. Given unpaired data, realistic LR images and degradation uncertainty are learned first simultaneously. Then, we sample multiple LR images from the learned LR images (mean) and adaptive degradation uncertainty estimation (variance) to construct LR-HR pairs to train the SR reconstruction networks. Additionally, we propose to calculate the adversarial loss from the gradient information in the SR stage for stable training performance and better visual quality. Experimental results on popular real-world datasets demonstrate the effectiveness of our approach for real-world SR when compared with other competing methods, ours often achieves sharper SR-resolved images with fewer artifacts.
+
+在本文中，我们提出了一种称为USR-DU的新方法，用于具有学习退化不确定性的无监督真实图像的SR。给定未配对数据，首先同时学习真实LR图像和退化不确定性。然后，从学习到的低分辨率图像(均值)和自适应退化不确定性估计(方差)中采样多幅低分辨率图像，构建LR-HR对，训练超分辨率重建网络。此外，我们提出在SR阶段从梯度信息中计算对抗损失，以获得稳定的训练性能和更好的视觉质量。在流行的真实世界数据集上的实验结果表明了与其他竞争方法相比我们的方法在真实世界SR中的有效性，并且可以获得更清晰的伪影更少的SR图像。
+
+\chapter{文献翻译：DASR}
+
+Unsupervised Real-world Image Super Resolution via Domain-distance Aware Training
+
+基于域距离感知训练的无监督真实世界图像超分辨率
+
+Abstract
+
+摘要
+
+These days, unsupervised super-resolution (SR) is soaring due to its practical and promising potential in real scenarios. The philosophy of off-the-shelf approaches lies in the augmentation of unpaired data, i.e. first generating synthetic low-resolution (LR) images Yg corresponding to realworld high-resolution (HR) images Xr in the real-world LR domain Yr, and then utilizing the pseudo pairs {Yg, Xr} for training in a supervised manner. Unfortunately, since image translation itself is an extremely challenging task, the SR performance of these approaches is severely limited by the domain gap between generated synthetic LR images and real LR images. In this paper, we propose a novel domain-distance aware super-resolution (DASR) approach for unsupervised real-world image SR. The domain gap between training data (e.g. Yg) and testing data (e.g. Yr) is addressed with our domain-gap aware training and domain-distance weighted supervision strategies. Domaingap aware training takes additional benefit from real data in the target domain while domain-distance weighted supervision brings forward the more rational use of labeled source domain data. The proposed method is validated on synthetic and real datasets and the experimental results show that DASR consistently outperforms state-of-the-art unsupervised SR approaches in generating SR outputs with more realistic and natural textures.
+
+近年来，无监督的超分辨率(Super-resolution，SR)由于其在实际场景中的实用性和应用潜力而迅速发展。现有方法的核心思想在于增强未配对数据，即首先在真实的LR域Yr中生成与真实高分辨率(HR)图像Xr对应的合成低分辨率(LR)图像Yg，然后利用伪成对{Yg，Xr}以监督方式进行训练。遗憾的是，由于图像翻译本身是一项极具挑战性的任务，这些方法的SR性能受到生成的合成LR图像和真实LR图像之间的域差距的严重限制。在本文中，我们提出了一种新的域距离感知超分辨率(DASR)方法用于无监督的真实图像超分辨率重建。训练数据之间的域间隙(例如：Yg)和测试数据(如：Yr)通过我们的域距离感知训练和域距离加权监督策略来解决。域距离感知训练可以从目标域的真实数据中获得额外的收益，而域距离加权监督可以更合理地利用带标签的源域数据。所提出的方法在合成数据集和真实数据集上进行了验证，实验结果表明DASR在生成具有更真实和自然纹理的SR输出方面始终优于现有的无监督SR方法。
+
+Introduction
+
+引言
+
+Single image super-resolution (SR) aims at reconstructing a high-resolution (HR) image from a low-resolution (LR) observation. In the past two decades, SR has been a thriving research topic due to its highly practical value in enhancing image details and textures. A wide variety of models [15, 19, 55, 49, 22] have been suggested to deal with the image SR problem.
+
+单幅图像超分辨率(super-resolution，SR)旨在从低分辨率(low-resolution，LR)观测值重建出高分辨率(high-resolution，HR)图像。在过去的二十年中，由于其在增强图像细节和纹理方面的高度实用价值，SR一直是一个蓬勃发展的研究课题。人们提出了各种各样的模型[15、19、55、49、22]来处理图像超分辨问题。
+
+Benefiting from the rapid development of deep convolutional neural networks (CNNs), recent years have witnessed an explosive spread of training CNN models [27, 38, 48, 52, 60, 63, 57, 36] for SR. State-of-the-art SR performance has been boosted by directly training networks to capture the LR-to-HR mapping. Moreover, when combined with adversarial training [20] or perceptual losses [31], SR networks can produce accurate and natural-looking image details.
+
+得益于深度卷积神经网络(CNNs)的快速发展，近年来用于SR的训练CNN模型[27、38、48、52、60、63、57、36]呈爆炸式增长。通过直接训练网络来捕获LR与HR的映射，先进的SR性能得到了提升。此外，当与对抗训练[20]或感知损失[31]相结合时，SR网络可以产生准确和自然的图像细节。
+
+In spite of their success on benchmark datasets, the poor generalization capacity of discriminatively trained SR networks limits their application in real scenarios. When applied to super-resolve real images, SR networks trained on simulated datasets usually lead to undesired strong artifacts in their SR results. For the pursuit of real image SR, great attempts have been made in the last couple of years. By adjusting the focal length of a digital camera, several works prepared real image SR datasets [9, 61, 8]. But the collections of these datasets are often laborious and costly.Furthermore, SR networks trained on the collected datasets are hard to generalize to images captured in other conditions. Another category of approaches investigates realworld image SR from an algorithmic perspective. Some works [41, 64, 5, 30] assume the LR and HR images satisfy a parameterized degradation model and propose blind SR algorithms which are able to adapt to the unknown downsampling kernel in the testing phase. These blind SR algorithms [11, 56, 58, 4] have shown improved generalization capacity over models trained on predetermined synthetic data, but the fixed degradation assumption greatly limits their performances on real data, which are often subject to complex sensor noise and compression artifacts.
+
+尽管它们在基准数据集上取得了成功，但判别训练的SR网络较差的泛化能力限制了它们在实际场景中的应用。当应用于超分辨率真实图像时，在模拟数据集上训练的SR网络通常会导致其SR结果中出现不期望的强伪影。对于真实图像SR的追求，最近几年做了很大的尝试。通过调整数码相机的焦距，多个工作制备了真实图像SR数据集[9、61、8]。但这些数据集的收集往往费力且成本较高。此外，在收集的数据集上训练的SR网络很难推广到其他条件下拍摄的图像。另一类方法从算法角度研究真实世界图像超分辨率。一些工作[41、64、5、30]假设LR和HR图像满足参数化退化模型，并在测试阶段提出能够适应未知下采样核的盲SR算法。这些盲SR算法[11、56、58、4]在预先确定的合成数据上训练的模型上表现出了更好的泛化能力，但固定的退化假设极大地限制了它们在真实数据上的性能，而真实数据往往受到复杂的传感器噪声和压缩伪影的影响。
+
+Recently, without any assumptions on the degradation model, unsupervised SR approaches have been proposed to leverage unpaired training data. Given a set of real-world LR images Yr = {yr i }i=1,...,N , some works [7, 39, 16, 24] proposed to train a degradation network to generate LR observations yg i of the available HR images xir ∈ X r, and enforcing the same distribution of the generated LR images Yg = {yg i }i=1,...,M with that of real LR images Yr. With the generated pseudo pairs {Yg, X r}, supervised training can be employed to train the SR network. Such unsupervised settings exploit the real training data to learn the complex degradation model and lead to promising SR results on real-world images [40]. However, existing unsupervised SR approaches [16, 7, 39] ignore the domain-gap between Yg and Yr in the training process of SR networks. In Fig. 1, we visualize the domain gap between the generated and the real LR images. We employed Bicubic downsampling, the trained down-sampling networks by FSSR [16] and our proposed DASR to generate LR images from HR images. Although the trained down-sampling networks are able to generate better LR images that reside in a domain closer to the real LR domain than the bicubically downsampled images, the domain gap still exists between Yg and Yr. The Frechet Inception Distance (FID) [26] between bicubically downsampled images, FSSR generated LR images, DASR generated LR images and AIM LR images are 37.69, 33.89 and 31.28, respectively. As the four groups of LR images share the same image contents, the FID scores clearly reflect the domain-distance between generated LR images and real-world LR images in the AIM [40] dataset.
+
+最近，在不对退化模型做任何假设的情况下，无监督SR方法被提出来利用未配对的训练数据。给定一组真实的LR图像Yr = {yr i} i = 1，..，N，有工作[7、39、16、24]提出训练一个退化网络来生成可用HR图像xir∈X r的LR观测值ygi，并使得生成的LR图像Yg = { yg i } i = 1，..，M与真实LR图像Yr具有相同的分布。利用生成的伪成对{Yg，Xr}，可以使用监督训练来训练SR网络。这种无监督的设置利用真实的训练数据来学习复杂的退化模型，并在真实图像上产生合理的SR结果[40]。然而，现有的无监督SR方法[16、7、39]忽略了SR网络训练过程中Yg和Yr之间的域间隔。在图1中，我们可视化了生成的LR图像和真实LR图像之间的域间隔。我们使用双三次下采样、FSSR [ 16 ]训练的下采样网络和我们提出的DASR从HR图像生成LR图像。尽管训练好的降采样网络能够生成比双三次降采样图像更接近真实LR域的LR图像，但是Yg和Yr之间仍然存在域间隙。双三次降采样图像、FSSR生成低分辨率图像、DASR生成低分辨率图像和AIM低分辨率图像之间的FID [ 26 ]分别为37.69、33.89和31.28。由于4组低分辨率图像具有相同的图像内容，所以FID分数清晰地反映了AIM[ 40 ]数据集中生成的低分辨率图像与真实低分辨率图像的领域距离。
+
+In this paper, we propose a Domain-distance Aware Super-resolution (DASR) framework for real-world image super-resolution. Different from previous unsupervised methods [7, 39, 16, 23] which rely on the generation of pseudo pairs for supervised training, our DASR takes into consideration the domain gap between the generated and real LR images, i.e. Yg and Yr, and solves the SR problem with both of them under a domain adaptation setting. Our DASR method addresses the domain gap issue through two training strategies: domain-gap aware training and domain-distance weighted supervision. Firstly, with the domain-gap aware training, DASR employs both the generated pseudo pairs {Yg, X r} and real LR images Yr to train the SR network. Besides the supervised loss on the pseudo pairs {Yg, X r}, DASR also imposes adversarial constraints on the HR estimation X r→r of real-world data Yr. Incorporating Yr into training informs the network of the target domain, greatly improves its SR performance on real-world data. Secondly, besides the domain-gap aware training, a domain-distance weighted supervision strategy is also proposed for advanced exploitation of the generated pseudo pairs. As shown in Fig. 1, some generated LR samples reside closer to the real-world domain while the others are relatively far away from it. We therefore adjust the importance of each pair {yg i , xir} according to the domain distance between yg i and Yr. Samples that are relatively closer to the real-world domain are assigned with larger weights in the training phase; while unrealistic samples are only allowed to make a limited contribution to the training.
+
+本文提出了一种面向真实世界图像超分辨率的领域距离感知超分辨率(DASR)框架。不同于以往的无监督方法[7、39、16、23]依赖于伪对的生成进行监督训练，我们的DASR考虑了生成的LR图像与真实LR图像之间的域间距，并在域适应设置下同时解决两者的SR问题。我们的DASR方法通过两种训练策略来解决域间距问题：域间距感知训练和域距离加权监督。首先，在域间隔感知训练下，DASR同时使用生成的伪成对{Yg，Xr}和真实LR图像Yr来训练SR网络。除了伪成对{Yg，Xr}上的监督损失外，DASR还对HR估计(真实世界数据Yr的Xr→r)施加对抗约束。将Yr纳入训练通知了目标域的网络，大大提高了其在真实数据上的SR性能。其次，除了域间距感知训练外，还提出了一种域距离加权监督策略来提前利用生成的伪对。如图1所示，生成的LR样本有的距离真实域较近，有的距离真实域较远。因此，我们根据ygi和Yr之间的领域距离来调整每个对{ygi，xir}的重要性。对于与真实世界域较为接近的样本，在训练阶段赋予较大权重；而不切实际的样本只允许对训练做出有限的贡献。
+
+In addition to the above strategies, which are the major contributions of this paper, we also improve previous methods by employing better architecture of the down-sampling network and better adversarial loss in the wavelet domain.
+
+除了上述策略，亦即本文的主要贡献，我们还通过使用更好的下采样网络结构和更好的小波域对抗损失来改进以前的方法。
+
+Our contributions can be summarized as follows:
+\begin{itemize}
+    \item A domain distance aware super-resolution (DASR) framework is proposed to solve the real-world image SR problem. DASR addresses the domain gap between generated LR images and real images with the proposed domain-gap aware training and domain-distance weighted supervision strategies.
+    \item We provide detailed ablation studies to analyze and validate our contributions. Experimental results on synthetic and real datasets clearly demonstrate the superiority of DASR over the competing approaches.
+\end{itemize}
+
+我们的贡献可以归纳如下：
+\begin{itemize}
+    \item 提出了一个域距离感知超分辨率(DASR)框架来解决现实世界中的图像超分辨率问题。DASR通过提出的域间距感知训练和域距离加权监督策略来解决生成的LR图像和真实图像之间的域间隔。
+    \item 我们提供了详细的消融实验来分析和验证我们的贡献。在合成数据集和真实数据集上的实验结果清楚地表明了DASR相对于竞争方法的优越性。
+\end{itemize}
+
+Related Works
+
+相关工作
+
+Single Image Super-Resolution with CNNs
+
+使用卷积神经网络的单幅图像超分辨率
+
+Nowadays CNN-based methods are the mainstream in the single image SR field. In the pioneering work of Dong et al. [12], the first CNN-based SR method to reach competitive results was introduced. They proposed SRCNN, a 3 layers CNN, to directly learn the mapping function between LR and HR image pairs. After that, a surge of network architectures, such as a deep network with residual learning [27], network with residual blocks [38], densely connected network [52], have been designed to solve the SR task. The SR performance on benchmark datasets have been continuously improved by newly proposed network architectures [2, 13, 25, 29, 32, 34, 63, 3, 28, 51]. Besides investigating more powerful network architecture, perceptualdriven approaches explore better loss functions to improve the perceptual quality of SR results. Johnson et al. [31] proposed a perceptual loss which measures the error of two images in the feature space instead of pixel space. Ledig et al. [35] firstly introduced the adversarial loss to favor outputs residing on the manifold of natural images. Inspired by these pioneer works, different training criteria [52, 60, 44] have been suggested to promote the visual quality of SR results.
+
+基于卷积神经网络的方法是目前单幅图像超分辨领域的主流方法。在Dong等[12]的开创性工作中，引入了第一个基于CNN的SR方法来达到有竞争力的结果。他们提出了3层卷积神经网络SRCNN来直接学习LR和HR图像对之间的映射函数。之后，涌现出大量的网络架构，如带残差学习的深度网络[27]、带残差块的网络[38]、密集连接网络[52]等被设计来解决SR任务。新提出的网络架构[2、13、25、29、32、34、63、3、28、51]在基准数据集上的SR性能不断提升。除了研究更强大的网络结构，感知驱动方法还探索更好的损失函数，以提高SR结果的感知质量。Johnson等人[31]提出了一种感知损失，它衡量的是两幅图像在特征空间而不是像素空间的误差。Ledig等人[35]首次引入对抗损失来支持位于自然图像流形上的输出。在这些先驱性工作的启发下，不同的训练标准[52、60、44]被提出，以促进SR结果的视觉质量。
+
+Although significant advances have been made, all the aforementioned approaches are trained and evaluated on simulated datasets which assume simple and uniform degradation. These days, the real-world image super-resolution problem has attracted increasing attention due to its high practical values. A branch of work [30, 41, 64, 5, 11] assumes the degradation model between LR and HR images can be characterized by an unknown blur kernel and the subsequent downsampling operation. These blind SR works explicitly estimate the unknown blur kernel at the testing time and take the estimated kernel as an input variable for kernel adaptive SR networks [58, 64] to adapt to different degradation hyper-parameters. There are also works [4, 37] attempting to use the test image for training or fine-tuning the SR network in the testing phase. However, both approaches still rely on a known degradation model during training. To deal with more general real-world SR task, some recent works consider an unsupervised setting which does not rely on the degradation assumption. Given a group of LR images, Yuan et al. [56] firstly learned a mapping to transfer the original input images to the clean image domain and applied SR in the clean image domain. Other unsupervised approaches [16, 7, 39, 24] proposed to learn a downsampling process to generate paired data and train SR network with the generated data in a supervised manner. The advantage of these unsupervised SR methods is that they do not rely on the degradation assumption, and therefore are capable of generalizing to very challenging real-world images. However, as image translation itself is an extremely challenging task, the generated LR images are often not consistent with the real LR images. Such a domain gap between training and testing data will deteriorate the final SR performance in the testing phase.
+
+尽管取得了重大进展，但上述方法都是在假设退化简单且均匀的模拟数据集上训练和评估的。近年来，真实世界的图像超分辨率问题由于其较高的实用价值而受到越来越多的关注。一个工作分支[30、41、64、5、11]假设LR和HR图像之间的退化模型可以由一个未知的模糊核和随后的下采样操作来表征。这些盲SR工作在测试时刻显式估计未知模糊核，并将估计的核作为核自适应SR网络[58,64]的输入变量以适应不同的退化超参数。也有工作[4、37]在测试阶段尝试使用测试图像来训练或微调SR网络。然而，这两种方法在训练过程中仍然依赖于已知的退化模型。为了处理更一般的真实世界SR任务，最近的一些工作考虑了一种不依赖于退化假设的无监督设置。给定一组LR图像，Yuan等[56]首先学习一个映射将原始输入图像转移到干净图像域，并在干净图像域应用SR。其他无监督方法[16、7、39、24]提出学习一个下采样过程来生成配对数据，并以监督的方式用生成的数据训练SR网络。这些无监督SR方法的优点在于它们不依赖于退化假设，因此能够推广到非常具有挑战性的现实世界图像。然而，由于图像翻译本身是一项极具挑战性的任务，生成的低分辨率图像往往与真实的低分辨率图像不一致。这种训练和测试数据之间的领域差距会恶化测试阶段的最终SR性能。
+
+Domain Adaptation
+
+域适应
+
+Domain adaptation aims to utilize a labeled source domain to learn a model that performs well on an unlabeled target domain. It is a classical machine learning problem [17, 14, 46]. Recently, with the explosive spread of using CNN models to solve computer vision tasks, domain adaption has received increasing attention. It has been deployed in many tasks for levering synthetic data or data from other datasets. Early domain adaptation works in the computer vision field focus on solving the domain bias issue in high-level classification tasks [42, 10, 18, 21, 43]. Recently, domain adaptation has also been adopted in more challenging dense estimation tasks such as semantic segmentation [62, 45]. With appropriate adaptation strategies, models trained on synthetic datasets have achieved comparable performance to models trained with real labeled data [6, 17, 45, 54]. In this paper, we utilize domain adaptation to improve SR performance on real data.
+
+域适应旨在利用已标记的源域学习一个在未标记的目标域上表现良好的模型。它是一个经典的机器学习问题[17、14、46]。近年来，随着使用CNN模型解决计算机视觉任务的爆炸式增长，领域自适应受到了越来越多的关注。它已经被部署在许多任务中，用于利用合成数据或其他数据集的数据。早期计算机视觉领域的领域自适应工作侧重于解决高层分类任务[42、10、18、21、43]中的领域偏差问题。最近，领域自适应也被用于更具挑战性的稠密估计任务，如语义分割[62、45]。通过适当的自适应策略，在合成数据集上训练的模型取得了与真实标注数据[6、17、45、54]训练的模型相当的性能。在本文中，我们利用域适应来提高真实数据上的SR性能。
+
+DASR for Unsupervised Image SR
+
+用于盲图像超分的DASR
+
+Methodology Overview
+
+方法总览
+
+Given two domains described by two sets of unpaired LR images Yr = {yr i }i=1,...,N and HR images X r = {xir}i=1,...,M , we aim to learn an SR network (SRN) to enlarge the size of an image from the LR domain and simultaneously ensure the HR estimation lies in the real HR domain. To attain this goal, we follow the previous stateof-the-art methods [16, 7, 39] and propose a two-stage approach. Firstly, we train a down-sampling network (DSN) to generate LR images in the real-world LR domain from HR images: yg i = DSN (xir). Then, we utilize the generated LR-HR pairs {yg i , xir}i=1,...,M for training the SRN. In contrast to previous works [16, 7, 39] which simply employ the generated pseudo pairs to train SRN in a supervised manner, our DASR framework considers the domain bias between Yg and Yr and adopts domain-gap aware training and domain-distance weighted supervision strategies to take full advantage of real-world LR images as well as the generated pairs. An illustration of the proposed DASR framework is shown in Fig. 2.
+
+给定两组未配对的LR图像Yr = {yri} i = 1，..，N和HR图像Xr = {xir} i = 1，..，M描述的两个域，我们旨在学习一个SR网络(SRN)，从LR域扩大图像的大小，同时确保HR估计位于真实的HR域。为了实现这一目标，我们遵循先前最先进的方法[16、7、39]，提出了一个两阶段方法。首先，我们训练了一个下采样网络(DSN)来从HR图像中生成真实世界LR域的LR图像：ygi = DSN(xir)。然后，利用生成的LR-HR对{ygi，xir} i = 1，..，M训练SRN。与以前的工作[16、7、39]简单地使用生成的伪对以监督的方式训练SRN不同，我们的DASR框架考虑了Yg和Yr之间的域偏差，并采用域间距感知训练和域距离加权监督策略来充分利用真实的LR图像和生成的伪对。DASR框架的示意图如图2所示。
+
+In the remaining parts of this section, we firstly introduce how we train a DSN to generate synthetic LR-HR pairs. Then, we present our domain-gap aware training strategy and domain-distance weighted supervision strategy.
+
+在本节的剩余部分，我们首先介绍了如何训练一个DSN来生成合成的LR-HR对。然后，我们提出了域间距感知的训练策略和域距离加权的监督策略。
+
+Training of Down-Sampling Network
+
+降采样网络的训练
+
+Network architecture. Different down-sampling networks [16] have been trained in previous unsupervised SR works to generate synthetic real-world LR images from HR images. To avoid changing the image sizes between the input to output, existing approaches adopt a bicubic downsampling operation as the pre-processing step. Therefore, the degradation networks only need to translate the bicubic downsampled images to the real image domain. In contrast, our DSN takes the HR image as input and captures the whole degradation process with the network directly. Thus, without losing information in the bicubic down-sampling step, all the information in HR images can be exploited for generating better synthetic LR images. Our detailed network architecture can be found in Fig. 3 (a). DSN utilizes 23 residual blocks to extract information from the HR image, each residual block contains two convolutional layers (with kernel size 3x3 and channel number 64) and a ReLU activation in between. Then, a bilinear resize operator and two convolutional layers are adopted to reduce the spatial resolution of features and project the features back to the image domain.
+
+网络架构。不同的下采样网络[16]已经在之前的无监督SR工作中被训练，用于从HR图像生成合成的真实LR图像。为了避免改变输入到输出之间的图像大小，现有方法采用双三次降采样操作作为预处理步骤。因此，退化网络只需要将双三次降采样图像变换到真实图像域。相比之下，我们的DSN以HR图像作为输入，直接用网络捕捉整个退化过程。因此，在不损失双三次降采样步骤中的信息的情况下，可以利用HR图像中的所有信息生成更好的合成LR图像。详细的网络结构如图3(a)所示。DSN利用23个残差块从HR图像中提取信息，每个残差块包含两个卷积层(内核大小为3x3 ,通道数为64)和一个介于两者之间的ReLU激活。然后，采用双线性缩放算子和两个卷积层来降低特征的空间分辨率，并将特征投影回图像域。
+
+Losses. We train our DSN with a combination of multiple loss functions. To keep the content of generated LR image consistent with the input HR image, we apply content loss Lcon and perceptual loss Lper to constrain the distance between generated LR image yg i = DSN (xir) and bicubic downsampled HR image yb i:
+
+损失函数。我们用多个损失函数的组合来训练我们的DSN。为了使生成的低分辨率图像的内容与输入的高分辨率图像保持一致，利用内容损失Lcon和感知损失Lper约束生成的低分辨率图像ygi=DSN(xir)与双三次降采样后的高分辨率图像ybi之间的距离：
+
+where yb i = B(xir) is the bicubic downsampled HR image, and $\Phi(\cdot)$ denotes the VGG [47] feature extractor. In our implementation, we follow ESRGAN [52] and calculate perceptual loss on VGG-19 [47] features from conv5 3 convolutional layer. While to achieve the goal of domain translation, we impose adversarial losses between image samples in Yg and Yr. We adopt a similar idea with FSSR [16], which only imposes adversarial loss in the high-frequency space. But we use Haar wavelet transform to extract more informative high-frequency components. Concretely, denote the four sub-bands decomposed by Haar wavelet transform as LL, LH, HL and HH, we stack the LH, HL and HH components as the input to the discriminator. Compared with the high-frequency extractor used in FSSR [16], our wavelet-based extractor also exploits direction information to better characterize image details. The GAN loss for generator (i.e. our DSN) is defined as:
+
+其中ybi=B(xir)为双三次降采样HR图像，$\Phi(\cdot)$为VGG[47]特征提取器。在我们的实现中，我们遵循ESRGAN[52]，在VGG-19的conv5\_3卷积层[47]特征上计算感知损失。同时为了实现域翻译的目标，我们在Yg和Yr中的图像样本之间施加对抗损失。我们采用与FSSR[16]类似的思想，只在高频空间施加对抗损失。但是我们使用Haar小波变换提取信息更丰富的高频成分。具体来说，将Haar小波分解后的四个子带分别表示为LL、LH、HL和HH，将LH、HL和HH分量叠加作为判别器的输入。与FSSR[16]中使用的高频提取器相比，我们的基于小波的提取器还利用了方向信息来更好地表征图像细节。定义生成器(即我们的DSN)的GAN损失为：
+
+and the GAN loss for training the discriminator is in a symmetrical form:
+
+并且用于训练判别器的GAN损失是对称形式的：
+
+Hwavelet(·) in Eqs. (2) and (3) represents extracting LH, HL and HH subbands with Haar wavelet transform and concatenating the three variables. Imposing the adversarial loss in the high-frequency domain enables us to ignore the low-frequency content which is less relevant to the SR task [16] and focus more on the image details. Moreover, conducting adversarial training in lower-dimension space also reduces the difficulty of GAN training [33, 53].
+
+(2)和(3)中的$H_{wavelet}(\cdot)$表示用Haar小波变换提取LH、HL和HH子带，并将三个变量串联起来。在高频域施加对抗损失使得我们可以忽略与SR任务相关性较小的低频内容[16]，更专注于图像细节。此外，在低维空间进行对抗训练也降低了GAN训练[33、53]的难度。
+
+In our implementation, we adopt a similar strategy as CycleGAN [65], which imposes GAN loss on each patch. Concretely, we utilize a 4 layer fully convolutional discriminator, the patch discriminator has a valid receptive field of 23x23. The PatchGAN strategy helps to derive the patchlevel dense domain distance map, which will be utilized in the subsequent training phase of SRN. We refer to our suppl. material for more details of our patch discriminator.
+
+在我们的实现中，我们采用了与Cycle GAN[65]类似的策略，在每个块上施加GAN损失。具体来说，我们使用了一个4层的全卷积判别器，该块判别器的有效感受野为23x23。PatchGAN策略有助于得到补丁级的稠密域距离图，将用于SRN的后续训练阶段。对于我们的斑块判别器的更多细节，我们参考了我们的补充材料。
+
+Training Details. Our DSN is trained using the loss:
+
+训练细节。我们的DSN使用以下损失进行训练：
+
+To stabilize our training, we pre-train our DSN network with content loss. After a pre-train process of 25000 iterations, the $\alpha$, $\beta$ and $\gamma$ in Eq. (4) are set as 0.01, 1 and 0.0005, respectively. We train the DSN networks with 192x192 HR crops, the batch size is set as 16. The initial learning rate is 0.0001, and we halve it every 10000 iterations. We train the model for 50000 iterations.
+
+为了稳定我们的训练，我们预训练了带有内容丢失的DSN网络。经过25000次迭代的预训练过程后，(4)式中的$\alpha$、$\beta$和$\gamma$分别设定为0.01、1和0.0005。我们用192x192个HR作物训练DSN网络，批大小设置为16。初始学习率为0.0001，每10000次迭代减半。我们对模型进行50000次迭代训练。
+
+Domain distance aware training of SRN
+
+SRN的域距离感知训练
+
+With the aforementioned DSN, we are able to generate synthetic paired data {yg i , xir}i=1,...,M . However, as shown in Fig. 1, a domain gap still exists between generated LR images Yg and real LR images Yr. When the SR network trained on synthetic data is applied to super-resolve realworld LR images, such a domain gap between training and testing data will lead to a performance drop. To alleviate the domain bias issue, we consider a domain adaptation setting and incorporate both source domain labeled data {Yg, X r} and target domain unlabeled data Yr in the training of our SR network. The core of our adaptation strategy consists of two parts which include domain-gap aware training and domain-distance weighted supervision.
+
+利用上述DSN，我们能够生成合成的配对数据{ygi，xir} i = 1，..，M。然而，如图1所示，生成的低分辨率图像Yg与真实的低分辨率图像Yr之间仍然存在域距离。当基于合成数据训练的超分辨网络应用于超分辨真实世界低分辨率图像时，训练数据和测试数据之间的域间距会导致性能下降。为了缓解领域偏差问题，我们考虑了一个域自适应设置，将源域有标签数据{Yg，Xr}和目标域无标签数据Yr同时纳入SR网络的训练中。我们的自适应策略的核心由两部分组成，包括域间距感知训练和域距离加权监督。
+
+Domain-gap aware training. Given training samples from source and target domains, we utilize different losses in the two domains to take full advantage of the training data (see Fig. 4). For the data in the source domain, which have supervised labels, we deploy losses to train the network in a supervised manner. While, for target domain data, which do not have labels, we impose adversarial losses to align the distribution of their outputs X r→r = SRN (Yr) and the distribution of real HR images X r. The same as our DSN training, we introduce GAN losses in the wavelet space.
+
+领域差距觉察训练。给定源域和目标域的训练样本，我们利用两个域中不同的损失来充分利用训练数据(见图4)。对于源域中具有监督标签的数据，我们以监督的方式部署损失来训练网络。而对于没有标签的目标域数据，我们施加对抗损失来对齐其输出的分布(Xr→r = SRN ( Yr ))和真实HR图像的分布Xr。与我们的DSN训练相同，我们在小波空间中引入GAN损失。
+
+Besides introducing Ltarget,adv to guide network training with target domain information, making rational use of information in the source domain is of equal importance for obtaining a good SRN. In the following part, we introduce how the domain distance information of each sample can be used for adaptively supervised training of SRN.
+
+除了引入$L_{target,adv}$以目标域信息指导网络训练外，合理利用源域信息对于获得良好的SRN同样重要。下面介绍如何利用每个样本的领域距离信息进行SRN的自适应监督训练。
+
+Domain-distance weighted supervision. As shown in Fig. 1, each sample in Yg has a distinct distance to the realworld image domain Yr. More specifically, since the difference between images from different domains only lies in their low-level details, each area of generated images may possess diverse domain distances to the real-world image domain. When being applied as source domain data to train target domain SRN, different areas should be endowed with various importance based on their respective distance to the target domain. We therefore propose a weighted supervision strategy which utilizes a dense domain distance map to adaptively adjust the losses for each pair {yg i , xir}. The weighted supervised losses in the source domain can be written as:
+
+域距离加权监督。如图1所示，Yg中的每个样本与真实世界图像域Yr有明显的距离。更具体地说，由于来自不同域的图像之间的差异仅在于它们的低级细节，因此生成图像的每个区域可能与真实图像域具有不同的域距离。在作为源域数据训练目标域SRN时，不同的区域应根据各自到目标域的距离赋予不同的重要性。因此，我们提出了一种加权监督策略，利用稠密域距离图自适应地调整每个对{ygi，xir}的损失。源域的加权监督损失可以写为：
+
+where wi is the domain distance map for yg i , and ⊙ denotes the point-wise multiplication. We utilize the discriminators obtained during the training process of DSN to evaluate the domain distance map for each sample. Note that the discriminator is trained to distinguish the generated patches from the real-world LR patches and the discriminator output denotes the possibility that the input comes from the target domain. Thus, the larger the discriminator output, the higher the possibility that the input comes from the target real-world LR domain and the less the distance to the target domain. We directly utilize bilinear resize to adjust the spatial size of discriminator outputs, and utilized the resize weight map to weigh the importance of each local area.
+
+式中：wi为ygi的域距离图，⊙表示逐点相乘。我们利用DSN训练过程中得到的判别器来评估每个样本的领域距离图。注意，判别器被训练用来区分生成的块和真实的LR块，判别器输出表示输入来自目标域的可能性。因此，判别器输出越大，输入来自目标真实世界LR域的可能性越高，与目标域的距离越小。我们直接利用双线性调整来调整判别器输出的空间大小，并利用调整权重图来权衡每个局部区域的重要性。
+
+Training details. In summary, with our domain-distance aware training strategy, SRN is trained through minimizing the following losses:
+
+训练细节。综上所述，在我们的域距离感知训练策略下，通过最小化以下损失来训练SRN：
+
+The same as our training schedule for DSN, we pretrain our SRN with content loss in the source domain. After 25000 iterations of pretraining, we employ all the losses in Eq. (7) with weights $\alpha$ = 0.01, $\beta$ = 1 and $\gamma$ = 0.005 to train the network for another 50000 iterations. We initialize the learning rate as 0.0002, and halve it every 10000 iterations.
+
+与我们对DSN的训练计划相同，我们在源域进行内容损失的SRN预训练。经过25000次预训练后，我们使用了公式中的所有损失。( 7 )以权重$\alpha$ = 0.01，$\beta$ = 1和$\gamma$ = 0.005对网络进行50000次迭代训练。我们将学习率初始化为0.0002，每10000次迭代将其减半。
+
+Our adaptation strategy is applicable to diverse network architectures. In this paper, we directly adopt the architecture used in ESRGAN [52] as our SRN.
+
+我们的适应策略适用于不同的网络架构。在本文中，我们直接采用ESRGAN[52]中使用的架构作为我们的SRN。
+
+Experimental Results on Synthetic Datasets
+
+在合成数据集上的实验结果
+
+Experimental Setting
+
+实验设置
+
+In this section, we evaluate the proposed DASR method on the AIM dataset, which was used in the AIM Challenge on Real World SR at ICCV 2019 [40]. The dataset was simulated by applying synthetic but realistic degradations to clean high-quality images. We follow the experimental setting of target domain super resolution in the Challenge. The training set consists of 2650 noisy and compressed images with unknown degradation from the Flickr2K dataset [1], and 800 clean HR images from the DIV2K [50] dataset. We conduct our experiments on the validation dataset of the AIM challenge, which has paired data for quantitative comparison. The validation dataset contains 100 images with the same type of degradation as the training LR images. Since the GAN approaches focus on the perceptual quality of the recovered image, Learned Perceptual Image Patch Similarity (LPIPS) [59] and Mean Opinion Score (MOS) are used as the primary metrics to evaluate different methods. A user study is conducted to calculate the MOS for different methods. The test candidates were shown a side-byside comparison of a sample result and the corresponding ground-truth. The final MOS of a specific image is the average score of different candidates’ opinion: 0 - ‘the same’, 1 - ‘very similar’, 2 - ‘similar’, 3 - ‘not similar’ and 4 - ‘different’. For all the MOS values reported in the paper, we have the same 26 candidates to perform the user study. In addition to the perceptual metrics, the Peak Signal-to-Noise Ratio (PSNR) and Structural Similarity Index (SSIM) are provided for reference.
+
+在本节中，我们在AIM数据集上评估了所提出的DASR方法，该方法在ICCV 2019[40]上的AIM挑战赛中使用。该数据集通过应用合成但真实的降质来清理高质量的图像。我们遵循挑战赛中目标域超分辨率的实验设置。训练集由来自Flickr2K数据集[1]的2650张含噪压缩退化未知图像和来自DIV2K数据集[50]的800张干净HR图像组成。我们在AIM挑战赛的验证数据集上进行实验，该数据有成对的数据用于定量比较。验证数据集包含100幅与训练LR图像退化类型相同的图像。由于GAN方法关注的是恢复图像的感知质量，因此使用学习的感知图像块相似度(LPIPS)[59]和平均意见得分(MOS)作为评估不同方法的主要指标。进行了用户研究，以计算不同方法的MOS。测试候选人被显示为一个样本结果和相应的真实值的并列比较。特定图像的最终MOS是不同候选人意见的平均分：0-'相同'，1-'非常相似'，2-'相似'，3-'不相似'和4-'不同'。对于论文中报告的所有MOS值，我们有相同的26个候选者来执行用户研究。除了感知指标外，还提供了峰值信噪比( PSNR )和结构相似度( SSIM )作为参考。
+
+Ablation study
+
+消融实验
+
+Before comparing DASR with state-of-the-art unsupervised real-world image SR methods, we conduct ablation experiments to analyze our DASR model. We firstly analyze our design choice for DSN training. Then, we provide experimental results to demonstrate the effectiveness of the proposed Domain-gap aware training and Domain-distance weighted supervision strategies.
+
+在将DASR与最先进的无监督真实图像SR方法进行比较之前，我们进行了消融实验来分析我们的DASR模型。我们首先分析了DSN训练的设计选择。然后，我们提供了实验结果来证明所提出的域间距感知训练和域距离加权监督策略的有效性。
+
+Better down-sampling network for synthetic paired data generation. Our DSN improves upon previous downsampling networks [16, 7, 39] by directly estimating LR image from un-preprocessed HR image and adopting better adversarial loss in wavelet space. In order to evaluate the effect of our modifications, we train downsampling networks with different settings, and use these models to generate LR images from the HR images in the AIM validation dataset.
+
+更好的用于合成配对数据生成的下采样网络。我们的DSN对之前的下采样网络[16、7、39]进行了改进，直接从未预处理的HR图像中估计LR图像，并在小波空间中采用更好的对抗损失。为了评估我们的修改的效果，我们训练了不同设置的下采样网络，并使用这些模型从AIM验证数据集中的HR图像生成LR图像。
